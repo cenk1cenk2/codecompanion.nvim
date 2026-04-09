@@ -310,6 +310,11 @@ end
 
 ---Handle completion
 function ACPHandler:handle_completion()
+  -- Ignore completions from a stale handler (e.g. a late cancel ack after a new request started)
+  if self.chat._acp_handler ~= self then
+    return
+  end
+
   if not self.chat.status or self.chat.status == "" then
     self.chat.status = "success"
   end
@@ -320,6 +325,10 @@ end
 ---Handle errors
 ---@param error string
 function ACPHandler:handle_error(error)
+  if self.chat._acp_handler ~= self then
+    return
+  end
+
   self.chat.status = "error"
   log:error("[ACP::Handler] %s", error)
 

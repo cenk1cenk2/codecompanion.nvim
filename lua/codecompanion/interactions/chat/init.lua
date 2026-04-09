@@ -1128,7 +1128,7 @@ function Chat:_submit_http(payload)
     end,
     on_error = function(err)
       if self.status == CONSTANTS.STATUS_CANCELLING then
-        return
+        return self:done(output, nil, nil, nil, { status = "stopped" })
       end
       self.status = CONSTANTS.STATUS_ERROR
       log:error("[chat::_submit_http] Error: %s", (err and (err.stderr or err.message)) or "unknown")
@@ -1555,15 +1555,6 @@ function Chat:stop()
 
     adapters.call_handler(self.adapter, "on_exit")
   end
-
-  vim.schedule(function()
-    if self.status ~= CONSTANTS.STATUS_CANCELLING then
-      return
-    end
-
-    log:debug("Chat request cancelled")
-    self:done(nil, nil, nil, nil, { status = "stopped" })
-  end)
 end
 
 ---Close the current chat buffer and clean up any resources

@@ -4,7 +4,7 @@ local api = vim.api
 local Icons = {}
 
 local CONSTANTS = {
-  NS_TOOL_ICONS = api.nvim_create_namespace("CodeCompanion-tool_icons"),
+  NS_ICONS = api.nvim_create_namespace("CodeCompanion-icons"),
 }
 
 ---@class CodeCompanion.Chat.UI.IconOpts
@@ -28,11 +28,11 @@ function Icons.apply(bufnr, line, opts)
   }, opts or {})
 
   -- Clear any existing icons on this line to prevent duplicates
-  api.nvim_buf_clear_namespace(bufnr, CONSTANTS.NS_TOOL_ICONS, line, line + 1)
+  api.nvim_buf_clear_namespace(bufnr, CONSTANTS.NS_ICONS, line, line + 1)
 
   local line_text = api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1] or ""
 
-  return api.nvim_buf_set_extmark(bufnr, CONSTANTS.NS_TOOL_ICONS, line, 0, {
+  return api.nvim_buf_set_extmark(bufnr, CONSTANTS.NS_ICONS, line, 0, {
     virt_text = { { opts.icon, opts.icon_hl_group } },
     virt_text_pos = opts.virt_text_pos,
     priority = math.max(opts.priority, 200),
@@ -49,26 +49,26 @@ function Icons.clear_icon(bufnr, extmark_id)
   if not extmark_id then
     return
   end
-  api.nvim_buf_del_extmark(bufnr, CONSTANTS.NS_TOOL_ICONS, extmark_id)
+  api.nvim_buf_del_extmark(bufnr, CONSTANTS.NS_ICONS, extmark_id)
 end
 
 ---Clear tool icons on a specific line
 ---@param bufnr number
 ---@param line number 0-based line number
 function Icons.clear_line(bufnr, line)
-  api.nvim_buf_clear_namespace(bufnr, CONSTANTS.NS_TOOL_ICONS, line, line + 1)
+  api.nvim_buf_clear_namespace(bufnr, CONSTANTS.NS_ICONS, line, line + 1)
 end
 
 ---Clear all tool icons from buffer
 ---@param bufnr number
 function Icons.clear_icons(bufnr)
-  api.nvim_buf_clear_namespace(bufnr, CONSTANTS.NS_TOOL_ICONS, 0, -1)
+  api.nvim_buf_clear_namespace(bufnr, CONSTANTS.NS_ICONS, 0, -1)
 end
 
 ---Return the tool icons namespace ID
 ---@return number
 function Icons.ns()
-  return CONSTANTS.NS_TOOL_ICONS
+  return CONSTANTS.NS_ICONS
 end
 
 return Icons

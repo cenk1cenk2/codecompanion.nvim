@@ -47,7 +47,7 @@ function Tools:format(message, opts, state)
 
   local content = message.content or ""
   if opts.status then
-    opts._icon_info = {
+    opts._tool_icon = {
       status = opts.status,
       has_icon = true,
       line_offset = content_line_offset,

@@ -25,6 +25,10 @@ function Tools:format(message, opts, state)
     content_line_offset = 3
   end
 
+  if state.has_plan_output then
+    state:mark_plan_complete()
+  end
+
   if state.last_type == self.chat.MESSAGE_TYPES.TOOL_MESSAGE then
     table.insert(lines, "")
     content_line_offset = 1

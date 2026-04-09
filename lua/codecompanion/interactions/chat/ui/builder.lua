@@ -17,11 +17,74 @@
 local config = require("codecompanion.config")
 
 local Icons = require("codecompanion.interactions.chat.ui.icons")
+local Plan = require("codecompanion.interactions.chat.ui.formatters.plan")
 local Reasoning = require("codecompanion.interactions.chat.ui.formatters.reasoning")
 local Standard = require("codecompanion.interactions.chat.ui.formatters.standard")
 local Tools = require("codecompanion.interactions.chat.ui.formatters.tools")
 
 local api = vim.api
+
+---Resolve a tool status to its icon and highlight groups
+---@param status string
+---@return string icon, string icon_hl_group, string line_hl_group
+local function resolve_tool_icon(status)
+  local icons = config.display.chat.icons
+  local map = {
+    pending = {
+      icon = icons.tool_pending,
+      icon_hl = "CodeCompanionChatToolPending",
+      line_hl = "CodeCompanionChatToolText",
+    },
+    in_progress = {
+      icon = icons.tool_in_progress,
+      icon_hl = "CodeCompanionChatToolInProgress",
+      line_hl = "CodeCompanionChatToolText",
+    },
+    completed = {
+      icon = icons.tool_success,
+      icon_hl = "CodeCompanionChatToolSuccessIcon",
+      line_hl = "CodeCompanionChatToolText",
+    },
+    failed = {
+      icon = icons.tool_failure,
+      icon_hl = "CodeCompanionChatToolFailureIcon",
+      line_hl = "CodeCompanionChatToolText",
+    },
+  }
+  local entry = map[status] or map.pending
+  return entry.icon, entry.icon_hl, entry.line_hl
+end
+
+---Resolve a plan status to its icon and highlight groups
+---@param status string
+---@return string icon, string icon_hl_group, string line_hl_group
+local function resolve_plan_icon(status)
+  local icons = config.display.chat.icons
+  local map = {
+    pending = {
+      icon = icons.tool_pending,
+      icon_hl = "CodeCompanionChatToolPending",
+      line_hl = "CodeCompanionChatPlanPending",
+    },
+    in_progress = {
+      icon = icons.tool_in_progress,
+      icon_hl = "CodeCompanionChatToolInProgress",
+      line_hl = "CodeCompanionChatPlanInProgress",
+    },
+    completed = {
+      icon = icons.tool_success,
+      icon_hl = "CodeCompanionChatToolSuccessIcon",
+      line_hl = "CodeCompanionChatPlanCompleted",
+    },
+    failed = {
+      icon = icons.tool_failure,
+      icon_hl = "CodeCompanionChatToolFailureIcon",
+      line_hl = "CodeCompanionChatPlanFailed",
+    },
+  }
+  local entry = map[status] or map.pending
+  return entry.icon, entry.icon_hl, entry.line_hl
+end
 
 local EPHEMERAL_STATE = {
   __index = {
@@ -32,8 +95,14 @@ local EPHEMERAL_STATE = {
     mark_reasoning_complete = function(self)
       self.has_reasoning_output = false
     end,
+    mark_plan_complete = function(self)
+      self.has_plan_output = false
+    end,
     mark_reasoning_started = function(self)
       self.has_reasoning_output = true
+    end,
+    mark_plan_started = function(self)
+      self.has_plan_output = true
     end,
     update_type = function(self, type)
       self.last_type = type
@@ -76,6 +145,7 @@ function Builder.new(args)
     state = {
       last_role = args.chat._last_role,
       last_type = nil,
+      has_plan_output = false,
       has_reasoning_output = false,
 
       -- Block tracking
@@ -99,6 +169,7 @@ function Builder.new(args)
     _formatters = {
       Tools:new(args.chat),
       Reasoning:new(args.chat),
+      Plan:new(args.chat),
       Standard:new(args.chat),
     },
     _fmt_state = setmetatable({}, EPHEMERAL_STATE),
@@ -114,6 +185,7 @@ local function create_state(out, base_state)
 
   state.last_role = base_state.last_role
   state.last_type = base_state.last_type
+  state.has_plan_output = base_state.has_plan_output
   state.has_reasoning_output = base_state.has_reasoning_output
 
   -- Block tracking
@@ -193,6 +265,11 @@ function Builder:add_message(data, opts)
   -- NOTE: Adjust icon offset to account for header lines added before formatter content
   if opts._icon_info and opts._icon_info.has_icon and pre_content_lines > 0 then
     opts._icon_info.line_offset = (opts._icon_info.line_offset or 0) + pre_content_lines
+  end
+  if opts._plan_icons and pre_content_lines > 0 then
+    for _, entry in ipairs(opts._plan_icons) do
+      entry.line_offset = (entry.line_offset or 0) + pre_content_lines
+    end
   end
 
   local insert_line, icon_id
@@ -288,9 +365,27 @@ function Builder:_write_to_buffer(lines, opts)
   local icon_id
   if opts._icon_info and opts._icon_info.has_icon then
     local target_line = insert_line + (opts._icon_info.line_offset or 0)
-    icon_id = Icons.apply(self.chat.bufnr, target_line, opts._icon_info.status, {
+    local icon, icon_hl, line_hl = resolve_tool_icon(opts._icon_info.status)
+    icon_id = Icons.apply(self.chat.bufnr, target_line, {
+      icon = icon,
+      icon_hl_group = icon_hl,
+      line_hl_group = line_hl,
       virt_text_pos = opts.virt_text_pos,
     })
+  end
+
+  -- Plan entry icons
+  if opts._plan_icons then
+    for _, entry in ipairs(opts._plan_icons) do
+      local target_line = insert_line + (entry.line_offset or 0)
+      local icon, icon_hl, line_hl = resolve_plan_icon(entry.status)
+      Icons.apply(self.chat.bufnr, target_line, {
+        icon = icon,
+        icon_hl_group = icon_hl,
+        line_hl_group = line_hl,
+        virt_text_pos = "inline",
+      })
+    end
   end
 
   -- Record write bounds
@@ -323,6 +418,15 @@ function Builder:_write_to_buffer(lines, opts)
     end)
   end
 
+  -- Plan folds
+  if self.state.has_plan_output and not state.has_plan_output and config.display.chat.fold_reasoning then
+    local range_start = self.state.current_section_start or 0
+    local range_end = insert_line
+    vim.schedule(function()
+      self.chat.ui.folds:create_plan_fold(self.chat, range_start, range_end)
+    end)
+  end
+
   if state.last_role ~= config.constants.USER_ROLE then
     self.chat.ui:lock_buf()
   end
@@ -335,6 +439,7 @@ end
 ---Sync formatting state back to builder's persistent state
 ---@param state table
 function Builder:_sync_state_from_formatting_state(state)
+  self.state.has_plan_output = state.has_plan_output
   self.state.has_reasoning_output = state.has_reasoning_output
   self.state.last_role = state.last_role
   self.state.last_type = state.last_type
@@ -382,7 +487,14 @@ function Builder:update_line(line_number, content, opts)
     end
     -- Also clear by line range as a safety net
     Icons.clear_line(self.chat.bufnr, start_line)
-    new_icon_id = Icons.apply(self.chat.bufnr, start_line, opts.status, opts)
+    local icon, icon_hl, line_hl = resolve_tool_icon(opts.status)
+    new_icon_id = Icons.apply(self.chat.bufnr, start_line, {
+      icon = icon,
+      icon_hl_group = icon_hl,
+      line_hl_group = line_hl,
+      priority = opts.priority,
+      virt_text_pos = opts.virt_text_pos,
+    })
   end
 
   if self.state.last_role ~= config.constants.USER_ROLE then

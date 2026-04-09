@@ -270,11 +270,6 @@ function Builder:add_message(data, opts)
       entry.line_offset = (entry.line_offset or 0) + pre_content_lines
     end
   end
-  if opts._plan_icons and pre_content_lines > 0 then
-    for _, entry in ipairs(opts._plan_icons) do
-      entry.line_offset = (entry.line_offset or 0) + pre_content_lines
-    end
-  end
 
   local insert_line, icon_id
   if not vim.tbl_isempty(lines) then
@@ -381,20 +376,6 @@ function Builder:_write_to_buffer(lines, opts)
       local icon_opts = resolve_plan_icon(entry.status)
       icon_opts.virt_text_pos = "inline"
       Icons.apply(self.chat.bufnr, target_line, icon_opts)
-    end
-  end
-
-  -- Plan entry icons
-  if opts._plan_icons then
-    for _, entry in ipairs(opts._plan_icons) do
-      local target_line = insert_line + (entry.line_offset or 0)
-      local icon, icon_hl, line_hl = resolve_plan_icon(entry.status)
-      Icons.apply(self.chat.bufnr, target_line, {
-        icon = icon,
-        icon_hl_group = icon_hl,
-        line_hl_group = line_hl,
-        virt_text_pos = "inline",
-      })
     end
   end
 

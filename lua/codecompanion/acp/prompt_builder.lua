@@ -158,6 +158,11 @@ PromptBuilder.extract_text = extract_text
 ---@param params table
 ---@return nil
 function PromptBuilder:handle_session_update(params)
+  -- After cancellation, ignore content updates but allow done/error to drain
+  if self._cancelled then
+    return
+  end
+
   -- Fire streaming event on first chunk
   if self.options and not self._streaming_started then
     self._streaming_started = true
@@ -199,6 +204,12 @@ end
 ---@return nil
 function PromptBuilder:handle_permission_request(id, params)
   if not id or not params then
+    return
+  end
+
+  -- Auto-reject permission requests after cancellation
+  if self._cancelled then
+    self.connection:send_result(id, { outcome = { outcome = "canceled" } })
     return
   end
   local tool_call = params.toolCall
@@ -287,6 +298,11 @@ end
 ---Cancel the prompt
 ---@return nil
 function PromptBuilder:cancel()
+  if self._cancelled then
+    return
+  end
+  self._cancelled = true
+
   if self.connection.session_id then
     self.connection:send_notification(
       self.connection.METHODS.SESSION_CANCEL,
@@ -297,7 +313,15 @@ function PromptBuilder:cancel()
       utils.fire("RequestFinished", self.options)
     end
   end
-  self.connection._active_prompt = nil
+
+  -- Keep _active_prompt alive so the agent's completion response can drain
+  -- through handle_done. Set a timeout to clean up if the agent never responds.
+  vim.defer_fn(function()
+    if self.connection._active_prompt == self then
+      log:debug("[acp::prompt_builder] Cancel timeout: cleaning up active prompt")
+      self.connection._active_prompt = nil
+    end
+  end, 5000)
 end
 
 PromptBuilder.new = PromptBuilder.new

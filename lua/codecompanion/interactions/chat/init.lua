@@ -1557,6 +1557,7 @@ function Chat:stop()
 
   vim.schedule(function()
     log:debug("Chat request cancelled")
+    self:add_buf_message({ content = "*Chat request cancelled*\n\n" })
     self:done(nil, nil, nil, nil, { status = "stopped" })
   end)
 end

@@ -301,6 +301,11 @@ end
 ---@param request table
 ---@return nil
 function ACPHandler:handle_permission_request(request)
+  if self.chat.status == "cancelling" then
+    request.respond(nil, true)
+    return
+  end
+
   local tool_call = request.tool_call
 
   if

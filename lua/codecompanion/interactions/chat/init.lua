@@ -1223,6 +1223,7 @@ function Chat:submit(opts)
       vim.cmd("stopinsert")
     end
     self.ui:lock_buf()
+    self.ui:reset_cursor_state()
     self.header_line = api.nvim_buf_line_count(self.bufnr) + 2 -- this accounts for the LLM header
   end
 

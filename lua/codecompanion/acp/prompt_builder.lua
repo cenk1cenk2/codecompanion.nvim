@@ -207,11 +207,6 @@ function PromptBuilder:handle_permission_request(id, params)
     return
   end
 
-  -- Auto-reject permission requests after cancellation
-  if self._cancelled then
-    self.connection:send_result(id, { outcome = { outcome = "canceled" } })
-    return
-  end
   local tool_call = params.toolCall
   local options = params.options or {}
 

@@ -1222,6 +1222,7 @@ function Chat:submit(opts)
       vim.cmd("stopinsert")
     end
     self.ui:lock_buf()
+    self.ui:reset_cursor_state()
     self.header_line = api.nvim_buf_line_count(self.bufnr) + 2 -- this accounts for the LLM header
   end
 
@@ -1555,6 +1556,10 @@ function Chat:stop()
   end
 
   vim.schedule(function()
+    if self.status ~= CONSTANTS.STATUS_CANCELLING then
+      return
+    end
+
     log:debug("Chat request cancelled")
     self:done(nil, nil, nil, nil, { status = "stopped" })
   end)

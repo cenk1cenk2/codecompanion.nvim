@@ -1562,7 +1562,6 @@ function Chat:stop()
     end
 
     log:debug("Chat request cancelled")
-    self:add_buf_message({ content = "\n*Chat request cancelled.*\n" })
     self:done(nil, nil, nil, nil, { status = "stopped" })
   end)
 end

@@ -1146,6 +1146,7 @@ end
 ---@return nil
 function Chat:_submit_acp(payload)
   local acp_handler = require("codecompanion.interactions.chat.acp.handler").new(self)
+  self._acp_handler = acp_handler
   self.current_request = acp_handler:submit(payload)
 end
 
